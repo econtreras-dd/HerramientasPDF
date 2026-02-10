@@ -1,0 +1,52 @@
+﻿<div class="container mt-5">
+    <div class="main-content-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm"> ← Volver</a>
+            <h2 class="fw-bold">Convertir Office a PDF</h2>
+        </div>
+
+        <form id="convertForm" asp-controller="Convertir" asp-action="Procesar" method="post" enctype="multipart/form-data">
+            <div class="mb-4">
+                <label class="form-label fw-bold">Selecciona tu documento (Word, Excel, PPT):</label>
+                <input type="file"
+                       name="archivo"
+                       class="form-control form-control-lg"
+                       accept=".docx, .doc, .xlsx, .xls, .pptx, .ppt"
+                       required />
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">Convertir ahora</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const form = document.getElementById('convertForm');
+        const loader = document.getElementById('loader-overlay');
+        const fileInput = form.querySelector('input[type="file"]');
+
+        form.addEventListener('submit', function() {
+            // 1. Mostramos el bloqueo de pantalla
+            loader.style.display = 'flex';
+
+            // 2. Escuchamos cuando el usuario regresa a la ventana (foco)
+            // Esto sucede después de que se abre el cuadro de "Guardar como"
+            window.addEventListener('focus', function() {
+                setTimeout(() => {
+                    // Ocultamos el loader
+                    loader.style.display = 'none';
+
+                    // LIMPIEZA: Reseteamos todo el formulario
+                    form.reset();
+
+                    // Opcional: Si queremos ser específicos con el input
+                    if(fileInput) fileInput.value = "";
+
+                    console.log("Formulario limpiado para nueva conversión.");
+                }, 1000); // 1 segundo de cortesía visual
+            }, { once: true });
+        });
+    </script>
+}

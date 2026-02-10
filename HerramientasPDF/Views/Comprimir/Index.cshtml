@@ -1,0 +1,81 @@
+﻿@{
+    ViewData["Title"] = "Comprimir PDF";
+}
+
+<div class="container mt-5">
+    <div class="main-content-card">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm"> ← Volver</a>
+            <h2 class="fw-bold">Comprimir documento PDF</h2>
+        </div>
+
+        <form id="formComprimir" asp-action="Procesar" method="post" enctype="multipart/form-data"
+                onsubmit="comprimirPDF(event)" class="mt-4">
+
+            <div class="mb-4 text-start">
+                <label class="form-label fw-bold">1. Selecciona tu PDF:</label>
+                <input type="file" id="inputArchivo" name="archivo" class="form-control" accept=".pdf" required />
+            </div>
+
+            <div class="mb-4 text-start">
+                <label class="form-label fw-bold">2. Nivel de compresión:</label>
+                <select name="nivel" class="form-select form-select-lg">
+                    <option value="ebook">Recomendado (Buena calidad - tamaño medio)</option>
+                    <option value="screen">Máxima compresión (Calidad baja - ideal para web)</option>
+                    <option value="printer">Alta calidad (Para imprimir - reducción leve)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg w-100">Comprimir y Descargar</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        async function comprimirPDF(event) {
+            event.preventDefault(); // Evita la recarga de página inmediata
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const overlay = document.getElementById('loader-overlay');
+
+            // 1. Mostrar bloqueo y cambiar cursor
+            overlay.style.display = 'flex';
+            document.body.style.cursor = 'wait';
+
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // 2. Procesar descarga
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    // Intenta tomar el nombre original o uno genérico
+                    a.download = "comprimido.pdf";
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+
+                    // 3. LIMPIEZA TOTAL
+                    form.reset(); // Esto borra el nombre del archivo del control
+                } else {
+                    const errorMsg = await response.text();
+                    alert("Hubo un problema: " + errorMsg);
+                }
+            } catch (err) {
+                alert("Error de conexión al servidor.");
+            } finally {
+                // 4. Liberar pantalla siempre
+                overlay.style.display = 'none';
+                document.body.style.cursor = 'default';
+            }
+        }
+    </script>
+}

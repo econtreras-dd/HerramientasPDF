@@ -1,0 +1,155 @@
+﻿@{
+    ViewData["Title"] = "Imágenes a PDF";
+}
+
+<div class="container mt-5">
+    <div class="main-content-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm">← Volver</a>
+            <h2 class="fw-bold m-0">Imágenes a PDF</h2>
+        </div>
+
+        <div class="text-center">
+            <p class="text-muted">El orden en esta lista es exactamente el orden en el que aparecerán las páginas en su PDF.</p>
+
+            <div class="mb-3">
+                <input type="file" id="inputImagenes" class="form-control form-control-lg" multiple accept="image/jpeg, image/png, image/bmp" />
+            </div>
+
+            <ul id="listaImagenes" class="list-group mb-4 text-start"></ul>
+
+            <button type="button" id="btnGenerar" onclick="enviarImagenes()" class="btn btn-primary btn-lg w-100">Generar PDF</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let imagenesArray = [];
+
+    document.getElementById('inputImagenes').addEventListener('change', function(e) {
+        if (!e.target.files.length) return;
+        const nuevas = Array.from(e.target.files);
+        imagenesArray = imagenesArray.concat(nuevas);
+        e.target.value = "";
+        renderizarListaImagenes();
+    });
+
+    function renderizarListaImagenes() {
+        const lista = document.getElementById('listaImagenes');
+        const btn = document.getElementById('btnGenerar');
+        lista.innerHTML = '';
+
+        if (imagenesArray.length === 0) {
+            lista.innerHTML = '<li class="list-group-item text-muted text-center py-5">No hay imágenes seleccionadas</li>';
+            btn.disabled = true;
+            return;
+        }
+
+        btn.disabled = false;
+
+        imagenesArray.forEach((file, index) => {
+            const canvasId = `img-canvas-${index}`;
+            const item = document.createElement('li');
+            item.className = 'list-group-item d-flex justify-content-between align-items-center p-2 mb-2 border rounded shadow-sm';
+
+            item.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="me-3" style="width: 60px; height: 80px; background: #f8f9fa; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        <canvas id="${canvasId}"></canvas>
+                    </div>
+                    <div>
+                        <span class="d-block fw-bold text-truncate" style="max-width: 200px;">${file.name}</span>
+                        <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moverImg(${index}, -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moverImg(${index}, 1)" ${index === imagenesArray.length - 1 ? 'disabled' : ''}>↓</button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarImg(${index})">×</button>
+                </div>`;
+
+            lista.appendChild(item);
+            dibujarMiniaturaImagen(file, canvasId);
+        });
+    }
+
+    function dibujarMiniaturaImagen(file, canvasId) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return; // Seguridad: el elemento pudo ser borrado de la lista
+
+            const ctx = canvas.getContext('2d');
+            canvas.width = 120;
+            canvas.height = 160;
+
+            const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
+            const centerShiftX = (canvas.width - img.width * ratio) / 2;
+            const centerShiftY = (canvas.height - img.height * ratio) / 2;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, img.width, img.height,
+                               centerShiftX, centerShiftY, img.width * ratio, img.height * ratio);
+
+            URL.revokeObjectURL(img.src);
+        };
+        img.src = URL.createObjectURL(file);
+    }
+
+    function moverImg(index, direccion) {
+        const nuevoIndex = index + direccion;
+        if (nuevoIndex >= 0 && nuevoIndex < imagenesArray.length) {
+            const temp = imagenesArray[index];
+            imagenesArray[index] = imagenesArray[nuevoIndex];
+            imagenesArray[nuevoIndex] = temp;
+            renderizarListaImagenes();
+        }
+    }
+
+    function eliminarImg(index) {
+        imagenesArray.splice(index, 1);
+        renderizarListaImagenes();
+    }
+
+        async function enviarImagenes() {
+        const btn = document.getElementById('btnGenerar');
+        btn.disabled = true;
+        btn.innerHTML = 'Procesando...';
+
+        const data = new FormData();
+        // Asegúrese de que este nombre coincida con el parámetro del C#
+        imagenesArray.forEach(file => data.append('imagenes', file));
+
+        try {
+            // CAMBIO CLAVE: Se agregó la "s" para que coincida con ImagenesController
+            const response = await fetch('/Imagenes/ConvertirImagenAPdf', {
+                method: 'POST',
+                body: data
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "imagenes_convertidas_v8.pdf";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+
+                imagenesArray = [];
+                renderizarListaImagenes();
+                alert("¡PDF generado con éxito!");
+            } else {
+                console.error("Error del servidor:", response.status);
+                alert("Error del servidor (" + response.status + "). Verifique que el método sea [HttpPost].");
+            }
+        } catch (error) {
+            console.error("Error de red:", error);
+            alert("Error de conexión. Verifique la consola (F12).");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Generar PDF';
+        }
+    }
+</script>

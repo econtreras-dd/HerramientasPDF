@@ -1,0 +1,222 @@
+﻿@{
+    ViewData["Title"] = "Reorganizar Páginas";
+}
+
+<script src="~/js/pdfjs/pdf.min.js"></script>
+<script>
+    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdfjs/pdf.worker.min.js';
+</script>
+
+<div id="loader-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+    <h3 id="loader-text" class="mt-3">Procesando PDF...</h3>
+</div>
+
+<div class="container mt-5">
+    <div class="main-content-card shadow-lg p-4 bg-white rounded">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm"> ← Volver</a>
+            <h2 class="fw-bold m-0 text-primary">Reorganizar PDF</h2>
+        </div>
+
+        <div class="mb-4">
+            <label class="form-label fw-bold">1. Sube tu archivo PDF:</label>
+            <input type="file" id="pdfInput" class="form-control form-control-lg" accept=".pdf" />
+        </div>
+
+        <div id="editorArea" style="display:none; min-height: 300px;">
+            <div class="alert alert-info py-2 shadow-sm">
+                <i class="bi bi-info-circle"></i> 2. <strong>Arrastra</strong> para reordenar o usa la <strong>X</strong> para eliminar páginas:
+            </div>
+
+            <div id="thumbnailContainer" class="row g-3 mb-4 p-3 border rounded bg-light" style="min-height: 200px;">
+            </div>
+
+            <div class="d-grid">
+                <button type="button" id="btnGenerar" onclick="generarNuevoPdf()" class="btn btn-primary btn-lg shadow">
+                    Descargar con nuevo orden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .page-card {
+        cursor: grab;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+        .page-card:active {
+            cursor: grabbing;
+        }
+
+    /* Botón de eliminar */
+    .btn-remove {
+        position: absolute;
+        top: -5px;
+        right: 5px;
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        border: 2px solid white;
+        font-size: 14px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: transform 0.2s;
+    }
+
+        .btn-remove:hover {
+            background: #a71d2a;
+            transform: scale(1.2);
+        }
+
+    .page-card .card-body {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        background: white;
+        padding: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .page-card img {
+        width: 100%;
+        height: auto;
+        border-radius: 4px;
+    }
+
+    .page-number {
+        font-size: 0.75rem;
+        font-weight: bold;
+        margin-top: 5px;
+        display: block;
+    }
+
+    .ghost {
+        opacity: 0.3;
+        background: #c8d6e5;
+        border-radius: 8px;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+    let pdfFile = null;
+    const pdfInput = document.getElementById('pdfInput');
+    const container = document.getElementById('thumbnailContainer');
+    const editorArea = document.getElementById('editorArea');
+    let sortable = null;
+
+    pdfInput.addEventListener('change', async (e) => {
+        pdfFile = e.target.files[0];
+        if (!pdfFile) return;
+
+        container.innerHTML = "<div class='col-12 text-center'><div class='spinner-border text-primary' role='status'></div><p class='mt-2'>Generando miniaturas...</p></div>";
+        editorArea.style.display = 'block';
+
+        const fileReader = new FileReader();
+        fileReader.onload = async function() {
+            try {
+                const typedarray = new Uint8Array(this.result);
+                const loadingTask = pdfjsLib.getDocument({data: typedarray});
+                const pdf = await loadingTask.promise;
+
+                container.innerHTML = "";
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 0.3 });
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                    const div = document.createElement('div');
+                    div.className = 'col-4 col-md-2 text-center page-card mb-3';
+                    div.setAttribute('data-index', i - 1);
+
+                    div.innerHTML = `
+                        <div class="btn-remove" title="Eliminar página" onclick="this.parentElement.remove()">×</div>
+                        <div class="card-body shadow-sm">
+                            <img src="${canvas.toDataURL()}" class="img-fluid" />
+                            <span class="page-number text-muted">Pág. ${i}</span>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                }
+
+                if (sortable) sortable.destroy();
+                sortable = new Sortable(container, {
+                    animation: 150,
+                    ghostClass: 'ghost',
+                    filter: '.btn-remove' // Evita que el botón dispare el arrastre
+                });
+
+            } catch (error) {
+                console.error("Error:", error);
+                container.innerHTML = "<p class='text-danger'>Error al procesar el PDF.</p>";
+            }
+        };
+        fileReader.readAsArrayBuffer(pdfFile);
+    });
+
+    async function generarNuevoPdf() {
+        // Obtenemos solo los índices de los elementos que NO fueron eliminados (los que quedan en el DOM)
+        const itemsRestantes = Array.from(container.children);
+
+        if (itemsRestantes.length === 0) {
+            alert("Debes dejar al menos una página.");
+            return;
+        }
+
+        const indices = itemsRestantes.map(el => parseInt(el.getAttribute('data-index')));
+        const formData = new FormData();
+        formData.append('archivo', pdfFile);
+        indices.forEach(idx => formData.append('orden', idx));
+
+        document.getElementById('loader-overlay').style.display = 'flex';
+
+        try {
+            const response = await fetch('@Url.Action("Procesar", "Organizar")', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "pdf_modificado.pdf";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+
+                window.URL.revokeObjectURL(url);
+                limpiarInterfaz();
+            }
+        } catch (error) {
+            alert("Error al generar el PDF.");
+        } finally {
+            document.getElementById('loader-overlay').style.display = 'none';
+        }
+    }
+
+    function limpiarInterfaz() {
+        pdfFile = null;
+        pdfInput.value = "";
+        container.innerHTML = "";
+        editorArea.style.display = 'none';
+    }
+</script>

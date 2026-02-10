@@ -1,0 +1,154 @@
+﻿@{
+    ViewData["Title"] = "Rotar PDF con Precisión";
+}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<div id="loader-overlay">
+    <div class="spinner"></div>
+    <h3 id="loader-text">Procesando...</h3>
+</div>
+
+<div class="container mt-5">
+    <div class="main-content-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm">← Volver</a>
+            <h2 class="fw-bold m-0">Rotar PDF con Precisión</h2>
+        </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">1. Sube el archivo para ver las páginas:</label>
+                <input type="file" id="pdfInput" class="form-control" accept=".pdf" />
+            </div>
+
+            <div id="contenedorVisor" class="row g-3 p-3 bg-light rounded-3 d-none" style="max-height: 500px; overflow-y: auto;">
+            </div>
+
+            <div id="controlesFinales" class="mt-4 d-none">
+                <div class="alert alert-info small">Haz clic en <strong>↻ Girar</strong> sobre cada página o usa el botón de abajo para <strong>Girar Todo</strong>.</div>
+
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-secondary w-100" onclick="rotarTodo(90)">Girar Todo +90°</button>
+                    <button type="button" class="btn btn-outline-secondary w-100" onclick="rotarTodo(180)">Voltear Todo 180°</button>
+                </div>
+
+                <button type="button" onclick="enviarAlServidor()" class="btn btn-primary btn-lg w-100">Guardar Cambios y Descargar</button>
+            </div>
+    </div>
+</div>
+
+<script>
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let pdfFile = null;
+    let paginasData = {}; // { numPag: grados }
+
+    document.getElementById('pdfInput').addEventListener('change', async function(e) {
+        pdfFile = e.target.files[0];
+        if (!pdfFile) return;
+
+        document.getElementById('loader-overlay').style.display = 'flex';
+
+        const reader = new FileReader();
+        reader.onload = async function() {
+            const pdf = await pdfjsLib.getDocument(new Uint8Array(this.result)).promise;
+            const visor = document.getElementById('contenedorVisor');
+            visor.innerHTML = '';
+            paginasData = {};
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                paginasData[i] = 0;
+                const pagina = await pdf.getPage(i);
+                const viewport = pagina.getViewport({ scale: 0.25 });
+
+                const col = document.createElement('div');
+                col.className = 'col-6 col-md-3 col-lg-2';
+                col.innerHTML = `
+                    <div class="card p-2 shadow-sm h-100">
+                        <canvas id="canvas-${i}" class="img-fluid rounded mb-2" style="transition: 0.3s;"></canvas>
+                        <div class="small fw-bold">Pág. ${i}</div>
+                        <button type="button" class="btn btn-sm btn-link" onclick="girarIndividual(${i})">↻ Girar</button>
+                    </div>
+                `;
+                visor.appendChild(col);
+
+                const canvas = document.getElementById(`canvas-${i}`);
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await pagina.render({ canvasContext: context, viewport: viewport }).promise;
+            }
+            document.getElementById('contenedorVisor').classList.remove('d-none');
+            document.getElementById('controlesFinales').classList.remove('d-none');
+            document.getElementById('loader-overlay').style.display = 'none';
+        };
+        reader.readAsArrayBuffer(pdfFile);
+    });
+
+    function girarIndividual(n) {
+        paginasData[n] = (paginasData[n] + 90) % 360;
+        document.getElementById(`canvas-${n}`).style.transform = `rotate(${paginasData[n]}deg)`;
+    }
+
+    function rotarTodo(grados) {
+        for (let n in paginasData) {
+            paginasData[n] = (paginasData[n] + grados) % 360;
+            document.getElementById(`canvas-${n}`).style.transform = `rotate(${paginasData[n]}deg)`;
+        }
+    }
+
+    async function enviarAlServidor() {
+        const overlay = document.getElementById('loader-overlay');
+        overlay.style.display = 'flex';
+
+        try {
+            const formData = new FormData();
+            formData.append('archivo', pdfFile);
+            formData.append('instruccionesJson', JSON.stringify(paginasData));
+
+            // Guardamos en 'res'
+            const res = await fetch('@Url.Action("Procesar", "PdfRotar")', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (res.ok) { // Cambiado de response a res
+                const blob = await res.blob(); // Cambiado de response a res
+
+                // 1. Crear el objeto URL
+                const url = window.URL.createObjectURL(blob);
+
+                // 2. Crear ancla invisible
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = "documento_rotado.pdf";
+
+                // 3. SECRETO PARA MAC: Agregar al DOM antes de hacer clic
+                document.body.appendChild(a);
+                a.click();
+
+                // 4. Limpieza con retardo para asegurar que Mac/Safari procesen la descarga
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    if (document.body.contains(a)) {
+                        document.body.removeChild(a);
+                    }
+                }, 100);
+
+                console.log("Descarga iniciada exitosamente.");
+            } else {
+                const errorMsg = await res.text();
+                alert("Error del servidor: " + errorMsg);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert("Error de conexión al intentar procesar el PDF.");
+        } finally {
+            // Esto siempre se ejecuta, falle o funcione, quitando el loader
+            overlay.style.display = 'none';
+        }
+    }
+
+</script>

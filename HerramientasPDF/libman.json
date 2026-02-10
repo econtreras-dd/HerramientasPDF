@@ -1,0 +1,14 @@
+{
+  "version": "3.0",
+  "defaultProvider": "cdnjs",
+  "libraries": [
+    {
+      "library": "pdf.js@3.4.120",
+      "destination": "wwwroot/js/pdfjs",
+      "files": [
+        "pdf.min.js",
+        "pdf.worker.min.js"
+      ]
+    }
+  ]
+}

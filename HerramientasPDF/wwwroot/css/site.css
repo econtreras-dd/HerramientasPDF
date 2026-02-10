@@ -1,0 +1,158 @@
+/* FUENTE INSTITUCIONAL */
+* {
+    font-family: 'Gojali', sans-serif !important;
+}
+
+/* ESTRUCTURA PARA FOOTER SIEMPRE ABAJO */
+html {
+    height: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    margin: 0;
+    background: linear-gradient(rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.4)), url('/images/dyna_back.png') no-repeat center center fixed;
+    background-size: cover;
+}
+
+main {
+    flex: 1;
+}
+/* Esto empuja el footer al fondo */
+
+/* LOADER / SPINNER */
+#loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 9999;
+    display: none; /* Se activa por JS */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.main-content-card {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 3rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    margin-top: 2rem;
+}
+
+/* Tarjeta principal */
+.tool-card {
+    cursor: pointer;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    transition: all 0.2s ease-in-out;
+    background-color: #ffffff;
+}
+
+    .tool-card:hover {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+/* Contenedor del icono */
+.icon-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 48px; /* Altura fija para alinear todos los iconos */
+    margin-bottom: 0.5rem;
+}
+
+/* Icono de 32px */
+.tool-icon {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+/* Textos */
+.tool-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+    color: #212529;
+}
+
+.tool-description {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+#thumbnailContainer {
+    min-height: 200px; /* Evita que la tarjeta se haga pequeña al cargar */
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.main-content-card {
+    min-height: 400px; /* Asegura que la tarjeta principal mantenga su forma */
+}
+
+/* Color institucional para botones primarios */
+.btn-primary {
+    background-color: #0052A1 !important;
+    border-color: #0052A1 !important;
+}
+
+    /* Efecto al pasar el mouse (un poco más oscuro para feedback visual) */
+    .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+        background-color: #003D7A !important;
+        border-color: #003D7A !important;
+        box-shadow: 0 0 0 0.25rem rgba(0, 82, 161, 0.25) !important;
+    }
+
+#listaArchivos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+}
+
+.draggable-item {
+    width: 100% !important; /* Forzamos ancho completo */
+    cursor: grab;
+    transition: background-color 0.2s;
+    touch-action: none;
+}
+
+    .draggable-item:active {
+        cursor: grabbing;
+        background-color: #f0f7ff !important;
+    }
+
+/* Clase que Sortable usa para mostrar dónde caerá el archivo */
+.sortable-ghost {
+    opacity: 0.3;
+    background-color: #007bff !important;
+    border: 2px dashed #007bff;
+}

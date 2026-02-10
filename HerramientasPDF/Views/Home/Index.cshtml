@@ -1,0 +1,110 @@
+﻿@{
+    ViewData["Title"] = "Panel de Control - Herramientas PDF";
+}
+
+<div class="text-center mt-5">
+    <h1 class="display-4 fw-bold">Gestor de Documentos</h1>
+    <p class="lead text-muted">Seleccione la herramienta que desea utilizar</p>
+</div>
+
+<div class="container mt-5">
+    <div class="row g-4 justify-content-center">
+
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card tool-card h-100 p-3 text-center" onclick="location.href='@Url.Action("Index", "Convertir")'" style="cursor: pointer;">
+                <div class="icon-container">
+                    <img src="~/images/office-a-pdf.png" class="tool-icon" alt="Office" />
+                </div>
+                <h6 class="fw-bold mb-1">Office a PDF</h6>
+                <p class="x-small text-muted mb-0">Word, Excel y PPT.</p>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card tool-card h-100 p-4 text-center" onclick="location.href='@Url.Action("Index", "Unir")'" style="cursor: pointer;">
+                <div class="icon-container">
+                    <img src="~/images/merge-pdf.png" class="tool-icon" alt="Office" />
+                </div>
+                <h5 class="fw-bold">Unir PDF</h5>
+                <p class="small text-muted mb-0">Combina varios archivos.</p>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card tool-card h-100 p-4 text-center" onclick="location.href='@Url.Action("Index", "Imagenes")'" style="cursor: pointer;">
+                <div class="icon-container">
+                    <img src="~/images/imagen-a-pdf.png" class="tool-icon" alt="Office" />
+                </div>
+                <h5 class="fw-bold">Imágenes a PDF</h5>
+                <p class="small text-muted mb-0">Convierte y rota fotos.</p>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card tool-card h-100 p-4 text-center" onclick="location.href='@Url.Action("Index", "Comprimir")'" style="cursor: pointer;">
+                <div class="icon-container">
+                    <div class="icon-container">
+                        <img src="~/images/compress-pdf.png" class="tool-icon" alt="Office" />
+                    </div>
+                </div>
+                <h5 class="fw-bold">Comprimir PDF</h5>
+                <p class="small text-muted mb-0">Reduce el tamaño de un archivo PDF</p>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card tool-card h-100 p-4 text-center" onclick="location.href='@Url.Action("Index", "PdfRotar")'" style="cursor: pointer;">
+                <div class="icon-container">
+                    <img src="~/images/rotar_pdf.png" class="tool-icon" alt="Office" />
+                </div>
+                <h5 class="fw-bold">Rotar PDF</h5>
+                <p class="small text-muted mb-0">Gira documentos PDF.</p>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card tool-card h-100 p-4 text-center shadow-sm" onclick="location.href='@Url.Action("Index", "Dividir")'" style="cursor: pointer; transition: transform 0.2s;">
+                <div class="icon-container">
+                    <img src="~/images/merge-pdf.png" class="tool-icon" alt="Office" />
+                </div>
+                <h5 class="fw-bold">Dividir PDF</h5>
+                <p class="small text-muted mb-0">Extrae páginas o divide tu archivo en partes.</p>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-4 col-lg-3">
+            <div class="card tool-card h-100 p-3 text-center" onclick="location.href='@Url.Action("Index", "Organizar")'">
+                <div class="icon-container">
+                    <img src="~/images/organizar-pdf.png" class="tool-icon" alt="Reorganizar" />
+                </div>
+                <h6 class="tool-title">Reorganizar PDF</h6>
+                <p class="tool-description">Cambia el orden de las páginas.</p>
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+<style>
+    .tool-card {
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0,0,0,0.05); /* Un borde muy sutil */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+        .tool-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.15);
+            border-color: #0d6efd; /* Color primario al pasar el mouse */
+        }
+
+    /* Asegura que el icono no se deforme */
+    .icon-box {
+        user-select: none;
+    }
+</style>

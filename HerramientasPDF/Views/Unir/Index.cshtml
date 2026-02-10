@@ -1,0 +1,211 @@
+﻿<script src="/js/pdfjs/pdf.min.js"></script>
+<script>
+    var pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdfjs/pdf.worker.min.js';
+</script>
+
+<div id="loader-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+    <h3 class="mt-3">Uniendo archivos...</h3>
+</div>
+
+<div class="container mt-5">
+    <div class="main-content-card shadow-lg p-4 bg-white rounded">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm">← Volver</a>
+            <h2 class="fw-bold m-0 text-primary">
+                Unir PDF <span id="contadorArchivos" class="badge bg-secondary fs-6">v1.5.0</span>
+            </h2>
+        </div>
+
+        <div class="mb-4">
+            <input type="file" id="inputArchivos" class="form-control form-control-lg" multiple accept="application/pdf" />
+        </div>
+
+        <ul id="listaArchivos" class="list-group mb-4">
+            <li class="list-group-item text-muted text-center py-5">No hay archivos seleccionados</li>
+        </ul>
+
+        <button type="button" id="btnCombinar" onclick="enviarFormularioUnir()" class="btn btn-primary btn-lg w-100 shadow" disabled>
+            Combinar Documentos
+        </button>
+    </div>
+</div>
+
+<style>
+    /* Estilos forzados para evitar conflictos con site.css */
+    #listaArchivos .list-group-item {
+        width: 100% !important;
+        cursor: move;
+        transition: background 0.2s;
+        user-select: none;
+    }
+    /* Estilo del elemento mientras se arrastra */
+    .dragging {
+        opacity: 0.5;
+        background-color: #f8f9fa !important;
+        border: 2px dashed #007bff !important;
+    }
+    /* Línea visual de destino */
+    .drag-over {
+        border-top: 4px solid #007bff !important;
+    }
+</style>
+
+<script>
+    let archivosArray = [];
+
+    // 1. CARGA DE ARCHIVOS
+    document.getElementById('inputArchivos').addEventListener('change', function(e) {
+        if (!e.target.files.length) return;
+        const nuevosArchivos = Array.from(e.target.files);
+        archivosArray = archivosArray.concat(nuevosArchivos);
+        e.target.value = "";
+        renderizarLista();
+    });
+
+    // 2. RENDERIZADO CON DRAG & DROP NATIVO
+    function renderizarLista() {
+        const lista = document.getElementById('listaArchivos');
+        const btn = document.getElementById('btnCombinar');
+        const contador = document.getElementById('contadorArchivos');
+
+        lista.innerHTML = '';
+
+        if (archivosArray.length === 0) {
+            lista.innerHTML = '<li class="list-group-item text-muted text-center py-5">Seleccione archivos</li>';
+            btn.disabled = true;
+            return;
+        }
+
+        btn.disabled = archivosArray.length < 2;
+        if(contador) contador.innerText = `${archivosArray.length} archivos`;
+
+        archivosArray.forEach((file, index) => {
+            const canvasId = `canvas-${index}`;
+            const spinnerId = `spinner-${index}`;
+            const item = document.createElement('li');
+
+            item.className = 'list-group-item d-flex align-items-center p-3 mb-2 border rounded shadow-sm';
+            item.draggable = true; // ACTIVAMOS EL DRAG NATIVO
+            item.dataset.index = index;
+
+            item.innerHTML = `
+                <div class="d-flex align-items-center flex-grow-1" style="min-width: 0; pointer-events: none;">
+                    <i class="bi bi-grip-vertical me-2 text-muted fs-4"></i>
+                    <div class="me-3 position-relative" style="width: 60px; height: 80px; flex-shrink: 0; background: #f8f9fa; border: 1px solid #dee2e6; display: flex; align-items: center; justify-content: center;">
+                        <canvas id="${canvasId}" style="max-width: 100%; max-height: 100%;"></canvas>
+                        <div id="${spinnerId}" class="position-absolute spinner-border spinner-border-sm text-secondary"></div>
+                    </div>
+                    <div style="min-width: 0; flex-grow: 1;">
+                        <span class="d-block fw-bold text-truncate">${file.name}</span>
+                        <small class="text-muted">${(file.size / 1024).toFixed(1)} KB</small>
+                    </div>
+                </div>
+                <div class="ms-3 d-flex align-items-center" style="flex-shrink: 0; pointer-events: auto;">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="mover(${index}, -1)">↑</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="mover(${index}, 1)">↓</button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminar(${index})">×</button>
+                </div>`;
+
+            // EVENTOS NATIVOS DE ARRASTRE
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', index);
+                item.classList.add('dragging');
+            });
+
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Permite la caída
+                item.classList.add('drag-over');
+            });
+
+            item.addEventListener('dragleave', () => {
+                item.classList.remove('drag-over');
+            });
+
+            item.addEventListener('drop', (e) => {
+                e.preventDefault();
+                item.classList.remove('drag-over');
+                const originIndex = e.dataTransfer.getData('text/plain');
+                const destinationIndex = index;
+
+                if (originIndex !== destinationIndex) {
+                    reordenarArray(parseInt(originIndex), parseInt(destinationIndex));
+                }
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+            });
+
+            lista.appendChild(item);
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                setTimeout(() => generarMiniatura(file, canvasId, spinnerId), 50);
+            }
+        });
+    }
+
+    // 3. LÓGICA DE REORDENAMIENTO
+    function reordenarArray(from, to) {
+        const elemento = archivosArray.splice(from, 1)[0];
+        archivosArray.splice(to, 0, elemento);
+        renderizarLista();
+    }
+
+    function eliminar(index) {
+        archivosArray.splice(index, 1);
+        renderizarLista();
+    }
+
+    function mover(index, direccion) {
+        const nuevoIndex = index + direccion;
+        if (nuevoIndex >= 0 && nuevoIndex < archivosArray.length) {
+            const temp = archivosArray[index];
+            archivosArray[index] = archivosArray[nuevoIndex];
+            archivosArray[nuevoIndex] = temp;
+            renderizarLista();
+        }
+    }
+
+    // 4. MINIATURAS Y ENVÍO
+    async function generarMiniatura(file, canvasId, spinnerId) {
+        try {
+            const reader = new FileReader();
+            reader.onload = async function() {
+                const typedarray = new Uint8Array(this.result);
+                const loadingTask = pdfjsLib.getDocument(typedarray);
+                const pdf = await loadingTask.promise;
+                const page = await pdf.getPage(1);
+                const canvas = document.getElementById(canvasId);
+                if(!canvas) return;
+                const viewport = page.getViewport({ scale: 0.15 });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+                const s = document.getElementById(spinnerId); if(s) s.style.display = 'none';
+            };
+            reader.readAsArrayBuffer(file);
+        } catch (e) { console.error(e); }
+    }
+
+    async function enviarFormularioUnir() {
+        const overlay = document.getElementById('loader-overlay');
+        overlay.style.display = 'flex';
+        const data = new FormData();
+        archivosArray.forEach(file => data.append('archivos', file));
+        try {
+            const response = await fetch('@Url.Action("Procesar", "Unir")', { method: 'POST', body: data });
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = "Expediente_Unido.pdf";
+                document.body.appendChild(a); a.click(); a.remove();
+                archivosArray = []; renderizarLista();
+            } else { alert("Error al procesar."); }
+        } catch (error) { alert("Error de conexión."); }
+        finally { overlay.style.display = 'none'; }
+    }
+</script>
