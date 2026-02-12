@@ -7,10 +7,29 @@
     var pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdfjs/pdf.worker.min.js';
 </script>
+<script src="~/js/sortable/sortable.min.js"></script>
 
-<div id="loader-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+<div id="loader-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 10000; justify-content: center; align-items: center; flex-direction: column;">
     <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
-    <h3 id="loader-text" class="mt-3">Procesando PDF...</h3>
+    <h3 class="mt-3 text-primary fw-bold">Procesando documento...</h3>
+</div>
+
+<div id="customPassModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 11000; justify-content: center; align-items: center;">
+    <div class="card shadow-lg border-0" style="max-width: 400px; width: 90%; border-top: 5px solid #ffc107 !important;">
+        <div class="card-body text-center p-4">
+            <i class="bi bi-shield-lock text-warning" style="font-size: 3rem;"></i>
+            <h4 class="fw-bold mt-2">Archivo Protegido</h4>
+            <div id="errorPassword" class="alert alert-danger py-1 small" style="display:none;">Clave incorrecta</div>
+            <div class="my-3 text-start">
+                <label class="small fw-bold">Contraseña del PDF:</label>
+                <input type="password" id="pdfPass" class="form-control" placeholder="Ingresa la clave">
+            </div>
+            <div class="d-grid gap-2">
+                <button class="btn btn-primary fw-bold" id="btnDesbloquear">Desbloquear</button>
+                <button type="button" class="btn btn-link btn-sm text-muted" onclick="location.reload()">Cancelar</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="container mt-5">
@@ -25,18 +44,14 @@
             <input type="file" id="pdfInput" class="form-control form-control-lg" accept=".pdf" />
         </div>
 
-        <div id="editorArea" style="display:none; min-height: 300px;">
-            <div class="alert alert-info py-2 shadow-sm">
-                <i class="bi bi-info-circle"></i> 2. <strong>Arrastra</strong> para reordenar o usa la <strong>X</strong> para eliminar páginas:
+        <div id="editorArea" style="display:none;">
+            <div class="alert alert-warning py-2 small mb-3">
+                <i class="bi bi-info-circle"></i> <strong>Tip:</strong> Arrastra las páginas para cambiar su orden o elimínalas con la <strong>X</strong>.
             </div>
-
             <div id="thumbnailContainer" class="row g-3 mb-4 p-3 border rounded bg-light" style="min-height: 200px;">
             </div>
-
             <div class="d-grid">
-                <button type="button" id="btnGenerar" onclick="generarNuevoPdf()" class="btn btn-primary btn-lg shadow">
-                    Descargar con nuevo orden
-                </button>
+                <button type="button" onclick="generarNuevoPdf()" class="btn btn-primary btn-lg shadow-sm fw-bold">Descargar PDF Reordenado</button>
             </div>
         </div>
     </div>
@@ -45,7 +60,6 @@
 <style>
     .page-card {
         cursor: grab;
-        transition: all 0.2s ease;
         position: relative;
     }
 
@@ -53,7 +67,6 @@
             cursor: grabbing;
         }
 
-    /* Botón de eliminar */
     .btn-remove {
         position: absolute;
         top: -5px;
@@ -61,162 +74,154 @@
         background: #dc3545;
         color: white;
         border-radius: 50%;
-        width: 24px;
-        height: 24px;
-        border: 2px solid white;
-        font-size: 14px;
-        line-height: 1;
+        width: 22px;
+        height: 22px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        z-index: 10;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        transition: transform 0.2s;
+        z-index: 100;
+        border: 2px solid white;
+        font-weight: bold;
+        font-size: 12px;
     }
-
-        .btn-remove:hover {
-            background: #a71d2a;
-            transform: scale(1.2);
-        }
 
     .page-card .card-body {
         border: 1px solid #dee2e6;
         border-radius: 8px;
         background: white;
         padding: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
     .page-card img {
         width: 100%;
         height: auto;
         border-radius: 4px;
-    }
-
-    .page-number {
-        font-size: 0.75rem;
-        font-weight: bold;
-        margin-top: 5px;
-        display: block;
+        pointer-events: none;
     }
 
     .ghost {
-        opacity: 0.3;
+        opacity: 0.4;
         background: #c8d6e5;
-        border-radius: 8px;
+        border: 2px dashed #0d6efd;
     }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
     let pdfFile = null;
+    let currentPassword = "";
+    let sortableInstance = null;
+
     const pdfInput = document.getElementById('pdfInput');
     const container = document.getElementById('thumbnailContainer');
     const editorArea = document.getElementById('editorArea');
-    let sortable = null;
+    const customModal = document.getElementById('customPassModal');
 
     pdfInput.addEventListener('change', async (e) => {
         pdfFile = e.target.files[0];
         if (!pdfFile) return;
 
-        container.innerHTML = "<div class='col-12 text-center'><div class='spinner-border text-primary' role='status'></div><p class='mt-2'>Generando miniaturas...</p></div>";
+        currentPassword = "";
         editorArea.style.display = 'block';
+        container.innerHTML = "<div class='text-center w-100 p-5'><div class='spinner-border text-primary'></div><p class='mt-2'>Analizando archivo...</p></div>";
 
         const fileReader = new FileReader();
         fileReader.onload = async function() {
-            try {
-                const typedarray = new Uint8Array(this.result);
-                const loadingTask = pdfjsLib.getDocument({data: typedarray});
-                const pdf = await loadingTask.promise;
+            const typedarray = new Uint8Array(this.result);
+            const loadingTask = pdfjsLib.getDocument({data: typedarray});
 
+            loadingTask.onPassword = (updatePassword, reason) => {
                 container.innerHTML = "";
+                mostrarModalClave(updatePassword, reason === 2);
+            };
 
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const viewport = page.getViewport({ scale: 0.3 });
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    await page.render({ canvasContext: context, viewport: viewport }).promise;
-
-                    const div = document.createElement('div');
-                    div.className = 'col-4 col-md-2 text-center page-card mb-3';
-                    div.setAttribute('data-index', i - 1);
-
-                    div.innerHTML = `
-                        <div class="btn-remove" title="Eliminar página" onclick="this.parentElement.remove()">×</div>
-                        <div class="card-body shadow-sm">
-                            <img src="${canvas.toDataURL()}" class="img-fluid" />
-                            <span class="page-number text-muted">Pág. ${i}</span>
-                        </div>
-                    `;
-                    container.appendChild(div);
+            try {
+                const pdf = await loadingTask.promise;
+                renderizarMiniaturas(pdf);
+            } catch (err) {
+                if (err.name !== 'PasswordException') {
+                    container.innerHTML = "<p class='text-danger text-center'>Error al abrir el PDF.</p>";
                 }
-
-                if (sortable) sortable.destroy();
-                sortable = new Sortable(container, {
-                    animation: 150,
-                    ghostClass: 'ghost',
-                    filter: '.btn-remove' // Evita que el botón dispare el arrastre
-                });
-
-            } catch (error) {
-                console.error("Error:", error);
-                container.innerHTML = "<p class='text-danger'>Error al procesar el PDF.</p>";
             }
         };
         fileReader.readAsArrayBuffer(pdfFile);
     });
 
-    async function generarNuevoPdf() {
-        // Obtenemos solo los índices de los elementos que NO fueron eliminados (los que quedan en el DOM)
-        const itemsRestantes = Array.from(container.children);
+    function mostrarModalClave(callback, esError) {
+        document.getElementById('errorPassword').style.display = esError ? 'block' : 'none';
+        document.getElementById('pdfPass').value = "";
+        customModal.style.display = 'flex';
 
-        if (itemsRestantes.length === 0) {
-            alert("Debes dejar al menos una página.");
-            return;
+        document.getElementById('btnDesbloquear').onclick = () => {
+            const pass = document.getElementById('pdfPass').value;
+            if(pass) {
+                currentPassword = pass;
+                customModal.style.display = 'none';
+                callback(pass);
+            }
+        };
+    }
+
+    async function renderizarMiniaturas(pdf) {
+        customModal.style.display = 'none';
+        container.innerHTML = "<p class='text-center w-100'>Generando vista previa...</p>";
+        const fragment = document.createDocumentFragment();
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 0.3 });
+            const canvas = document.createElement('canvas');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+
+            const div = document.createElement('div');
+            div.className = 'col-4 col-md-2 text-center page-card mb-3';
+            div.setAttribute('data-index', i - 1);
+            div.innerHTML = `
+                <div class="btn-remove" onclick="this.parentElement.remove()">×</div>
+                <div class="card-body">
+                    <img src="${canvas.toDataURL()}" class="img-fluid" />
+                    <span class="text-muted small">Pág. ${i}</span>
+                </div>`;
+            fragment.appendChild(div);
         }
+        container.innerHTML = "";
+        container.appendChild(fragment);
 
-        const indices = itemsRestantes.map(el => parseInt(el.getAttribute('data-index')));
+        // RE-INICIALIZAR SORTABLE (Esto es lo que se había roto)
+        if (sortableInstance) sortableInstance.destroy();
+        sortableInstance = new Sortable(container, {
+            animation: 150,
+            ghostClass: 'ghost',
+            filter: '.btn-remove'
+        });
+    }
+
+    async function generarNuevoPdf() {
+        const items = Array.from(container.children);
+        if (items.length === 0) return;
+
+        const indices = items.map(el => parseInt(el.getAttribute('data-index')));
         const formData = new FormData();
         formData.append('archivo', pdfFile);
+        formData.append('password', currentPassword);
         indices.forEach(idx => formData.append('orden', idx));
 
         document.getElementById('loader-overlay').style.display = 'flex';
 
-        try {
-            const response = await fetch('@Url.Action("Procesar", "Organizar")', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = "pdf_modificado.pdf";
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-
-                window.URL.revokeObjectURL(url);
-                limpiarInterfaz();
-            }
-        } catch (error) {
-            alert("Error al generar el PDF.");
-        } finally {
+        const resp = await fetch('@Url.Action("Procesar", "Organizar")', { method: 'POST', body: formData });
+        if (resp.ok) {
+            const blob = await resp.blob();
+            const a = document.createElement('a');
+            a.href = window.URL.createObjectURL(blob);
+            a.download = "PDF_Reordenado.pdf";
+            a.click();
+            location.reload();
+        } else {
+            alert("Error al procesar.");
             document.getElementById('loader-overlay').style.display = 'none';
         }
-    }
-
-    function limpiarInterfaz() {
-        pdfFile = null;
-        pdfInput.value = "";
-        container.innerHTML = "";
-        editorArea.style.display = 'none';
     }
 </script>
