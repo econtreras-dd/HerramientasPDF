@@ -268,10 +268,10 @@
                     window.URL.revokeObjectURL(url);
                     btnNuevo.style.display = 'block'; // Mostrar botón nuevo tras éxito
                 } else {
-                    alert("Error en la extracción.");
+                    mostrarAlerta("Error en la extracción.");
                 }
             } catch (error) {
-                alert("Error de conexión.");
+                mostrarAlerta("Error de conexión.");
             } finally {
                 overlay.style.display = 'none';
                 document.body.style.cursor = 'default';

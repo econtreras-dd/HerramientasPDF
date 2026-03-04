@@ -1,0 +1,188 @@
+﻿@{
+    ViewData["Title"] = "Unificador de Documentos";
+}
+
+<div class="container mt-5">
+    <div class="main-content-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a asp-controller="Home" asp-action="Index" class="btn btn-outline-primary btn-sm"> ← Volver</a>
+            <h2 class="fw-bold m-0">Unificador de Documentos varios a PDF</h2>
+        </div>
+
+        <div class="card shadow-lg border-0">
+            <div class="card-body p-5">
+                <div id="drop-zone" class="border border-2 border-dashed rounded-3 p-5 text-center mb-4 bg-light"
+                     style="cursor: pointer; border-color: #0d6efd !important;">
+                    <i class="bi bi-cloud-arrow-up-fill text-primary" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Arrastra tus archivos aquí o haz clic para seleccionar</h5>
+                    <p class="text-muted small">Soporta PDF, JPG, PNG</p>
+                    <input type="file" id="filePicker" multiple accept=".pdf,.jpg,.jpeg,.png" class="d-none">
+                </div>
+
+                <form asp-action="Procesar" method="post" enctype="multipart/form-data" id="unifyForm">
+                    <div id="file-list-container" class="mb-4 d-none">
+                        <h6 class="text-secondary fw-bold mb-3">Orden de los documentos (puedes arrastrar para reordenar):</h6>
+                        <ul class="list-group shadow-sm" id="sortable-list">
+                        </ul>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" id="btnSubmit" class="btn btn-primary btn-lg d-none">
+                            <i class="bi bi-file-earmark-pdf-fill me-2"></i>Unir ahora
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #drop-zone.dragover {
+        background-color: #e9ecef !important;
+        border-style: solid !important;
+    }
+
+    .list-group-item {
+        cursor: grab;
+    }
+
+        .list-group-item:active {
+            cursor: grabbing;
+        }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const filePicker = document.getElementById('filePicker');
+    const sortableList = document.getElementById('sortable-list');
+    const container = document.getElementById('file-list-container');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const form = document.getElementById('unifyForm');
+
+    let selectedFiles = [];
+
+    dropZone.onclick = () => filePicker.click();
+    filePicker.onchange = (e) => handleFiles(e.target.files);
+
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    };
+
+    function handleFiles(files) {
+        const newFiles = Array.from(files);
+        selectedFiles = [...selectedFiles, ...newFiles];
+        renderList();
+    }
+
+    function renderList() {
+        sortableList.innerHTML = '';
+        if (selectedFiles.length > 0) {
+            container.classList.remove('d-none');
+            btnSubmit.classList.remove('d-none'); // Aquí fallaba porque btnSubmit era null
+        }
+
+        selectedFiles.forEach((file, index) => {
+            const isPdf = file.name.toLowerCase().endsWith('.pdf');
+            const li = document.createElement('li');
+            li.className = "list-group-item d-flex justify-content-between align-items-center mb-2 rounded border shadow-sm";
+            li.setAttribute('data-index', index);
+            li.innerHTML = `
+                <div>
+                    <i class="bi bi-grip-vertical me-2 text-muted"></i>
+                    <i class="bi ${isPdf ? 'bi-file-pdf text-danger' : 'bi-image text-primary'} me-2"></i>
+                    <strong>${file.name}</strong>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger border-0" onclick="removeFile(${index})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            `;
+            sortableList.appendChild(li);
+        });
+
+        new Sortable(sortableList, {
+            animation: 150,
+            onEnd: function() {
+                const items = Array.from(sortableList.querySelectorAll('li'));
+                const newOrder = items.map(li => selectedFiles[parseInt(li.getAttribute('data-index'))]);
+                selectedFiles = newOrder;
+            }
+        });
+    }
+
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        if (selectedFiles.length === 0) {
+            container.classList.add('d-none');
+            btnSubmit.classList.add('d-none');
+        }
+        renderList();
+    }
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        if (selectedFiles.length === 0) return;
+
+        btnSubmit.disabled = true;
+        const textoOriginal = btnSubmit.innerHTML;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+        const formData = new FormData();
+        selectedFiles.forEach(file => {
+            formData.append("archivos", file);
+        });
+
+       try {
+            const response = await fetch('/Merge/Procesar', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "Documento_Unificado.pdf";
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                toasty('¡PDF Generado con éxito!');
+                // --- NUEVA LÓGICA DE LIMPIEZA ---
+                resetModule();
+                // -------------------------------
+
+            } else {
+                mostrarAlerta("Error en el servidor al procesar.");
+                resetButton(btnSubmit, textoOriginal);
+            }
+        } catch (error) {
+            console.error(error);
+            mostrarAlerta("Error de conexión.");
+            resetButton(btnSubmit, textoOriginal);
+        }
+    };
+
+    function resetModule() {
+            selectedFiles = []; // Vaciamos el arreglo de memoria
+            filePicker.value = ""; // Limpiamos el input físico
+            sortableList.innerHTML = ''; // Borramos la lista visual
+            container.classList.add('d-none'); // Ocultamos el contenedor de lista
+            btnSubmit.classList.add('d-none'); // Ocultamos el botón de unir
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i class="bi bi-file-earmark-pdf-fill me-2"></i>Unir ahora';
+        }
+
+        function resetButton(btn, texto) {
+            btn.disabled = false;
+            btn.innerHTML = texto;
+        }
+
+</script>

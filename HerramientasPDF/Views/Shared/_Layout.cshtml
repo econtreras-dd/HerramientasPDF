@@ -1,45 +1,83 @@
 ﻿<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="utf-8" />
-    <title>DynaPDF</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-</head>
-<body>
-    <div id="loader-overlay">
-        <div class="spinner mb-3"></div>
-        <h3 class="fw-bold">Procesando...</h3>
-        <p>DynaPDF está transformando su archivo.</p>
-    </div>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    <header>
-        <nav class="navbar navbar-light bg-white border-bottom shadow-sm">
-            <div class="container d-flex justify-content-center">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
-                    <img src="~/images/dynapdf_logo.png" alt="Logo" style="height: 60px; width: auto;" class="d-inline-block align-top">
-                </a>
-            </div>
-        </nav>
-    </header>
+    <script>
+        /**
+         * Función global para notificaciones unificadas
+         * param {string} titulo - Título principal
+         * param {string} mensaje - Texto descriptivo
+         * param {string} icono - 'success', 'error', 'warning', 'info', 'question'
+         */
+        function mostrarAlerta(titulo, mensaje, icono = 'info') {
+            return Swal.fire({
+                title: titulo,
+                text: mensaje,
+                icon: icono,
+                confirmButtonColor: '#0d6efd', // Color azul Bootstrap homologado
+                confirmButtonText: 'Aceptar'
+            });
+        }
 
-    <main class="container">
-        @RenderBody()
-    </main>
+        /**
+         * Notificación rápida que desaparece sola
+         */
+        function toasty(titulo, icono = 'success') {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+            Toast.fire({
+                icon: icono,
+                title: titulo
+            });
+        }
+    </script>
+
+
+    <html lang="es">
+    <head>
+        <meta charset="utf-8" />
+        <title>DynaPDF</title>
+        <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+        <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    </head>
+    <body>
+        <div id="loader-overlay">
+            <div class="spinner mb-3"></div>
+            <h3 class="fw-bold">Procesando...</h3>
+            <p>DynaPDF está transformando su archivo.</p>
+        </div>
+
+        <header>
+            <nav class="navbar navbar-light bg-white border-bottom shadow-sm">
+                <div class="container d-flex justify-content-center">
+                    <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                        <img src="~/images/dynapdf_logo.png" alt="Logo" style="height: 60px; width: auto;" class="d-inline-block align-top">
+                    </a>
+                </div>
+            </nav>
+        </header>
+
+        <main class="container">
+            @RenderBody()
+        </main>
 
     
-    <footer class="border-top footer text-muted bg-light">
-        <div class="container d-flex justify-content-between align-items-center py-3">
-            <span>&copy; 2026 - DynaPDF</span>
-            <div class="version-tag">
-                <span class="badge rounded-pill bg-secondary" style="opacity: 0.7;">
-                    v1.4.0
-                </span>
-                <small class="ms-2" style="font-size: 0.75rem;">Build: 12-02-26-release</small>
+        <footer class="border-top footer text-muted bg-light">
+            <div class="container d-flex justify-content-between align-items-center py-3">
+                <span>&copy; 2026 - DynaPDF</span>
+                <div class="version-tag">
+                    <span class="badge rounded-pill bg-secondary" style="opacity: 0.7;">
+                        v1.5.0
+                    </span>
+                    <small class="ms-2" style="font-size: 0.75rem;">Build: 27-02-26-release</small>
+                </div>
             </div>
-        </div>
-    </footer>
+        </footer>
 
-    @await RenderSectionAsync("Scripts", required: false)
-</body>
+        @await RenderSectionAsync("Scripts", required: false)
+    </body>
 </html>
